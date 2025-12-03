@@ -87,13 +87,17 @@ npm run build
 
 如果这个插件对你有帮助，欢迎请我喝杯咖啡！
 
-<div style="display: flex; justify-content: center; gap: 20px;">
-  <div style="text-align: center;">
-    <img src="..\canvas-viewer\image\3cb52ce3-b104-4b3e-b863-92658af17b56.jpg" alt="Alipay" width="200" />
-    <p>支付宝 (Alipay)</p>
-  </div>
-  <div style="text-align: center;">
-    <img src="..\canvas-viewer\image\e9d97d52-369e-4bfd-85cb-e97e6c1977e2.jpg" alt="WeChat" width="200" />
-    <p>微信支付 (WeChat Pay)</p>
-  </div>
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="image/alipay.jpg" alt="Alipay" width="200" />
+        <br/>支付宝 (Alipay)
+      </td>
+      <td align="center">
+        <img src="image/wechat.jpg" alt="WeChat" width="200" />
+        <br/>微信支付 (WeChat Pay)
+      </td>
+    </tr>
+  </table>
 </div>

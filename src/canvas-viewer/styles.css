@@ -1,0 +1,464 @@
+/* Canvas Viewer 样式 */
+
+/* Canvas Control Button Style */
+.canvas-viewer-control-item {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	cursor: pointer;
+	color: var(--icon-color);
+	border-radius: var(--radius-s);
+	transition: color 0.1s, background-color 0.1s;
+}
+
+.canvas-viewer-control-item:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--icon-color-hover);
+}
+
+.canvas-viewer-control-item.is-active {
+	color: var(--interactive-accent);
+	background-color: var(--background-modifier-active);
+}
+
+/* 基础容器 */
+.canvas-viewer-container {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	padding: 0 !important;
+	overflow: hidden;
+}
+
+/* 标题栏 */
+.canvas-viewer-header {
+	padding: 6px 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	flex-shrink: 0;
+}
+
+.canvas-viewer-header h4 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+/* 内容主区域 */
+.canvas-viewer-content {
+	flex: 1; /* 自动占据剩余所有高度 */
+	padding: 0;
+	overflow: hidden; /* 内部滚动，外部禁止 */
+	display: flex;
+	flex-direction: column;
+	height: auto; /* 覆盖之前的 calc */
+}
+
+/* 通用节点容器，让其撑满 */
+.canvas-viewer-text-node,
+.canvas-viewer-file-node,
+.canvas-viewer-link-node,
+.canvas-viewer-group-node {
+	flex: 1;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	border: none;
+	border-radius: 0;
+	overflow: hidden;
+	background-color: var(--background-primary); /* 确保有背景色 */
+}
+
+/* 节点头部 */
+.node-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center; /* 改为 center 垂直居中 */
+	padding: 8px 10px;
+	background-color: var(--background-primary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+	margin: 0;
+	gap: 8px;
+	min-height: 40px; /* 确保有足够高度 */
+}
+
+.node-header-right {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.node-pin-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+	cursor: pointer;
+	opacity: 0.6;
+	transition: all 0.2s;
+	/* 移除默认旋转 */
+}
+
+.node-pin-btn:hover {
+	opacity: 1;
+	color: var(--text-normal);
+}
+
+.node-pin-btn.is-active {
+	opacity: 1;
+	color: var(--interactive-accent);
+	/* 移除激活时的旋转恢复 */
+}
+
+.node-pin-btn svg {
+	width: 16px;
+	height: 16px;
+}
+
+.file-name {
+	/* margin-bottom: 8px;  移除旧的 margin */
+	margin: 0;
+	font-size: 13px;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.node-content {
+	flex: 1; /* 关键：让内容区域自动伸缩 */
+	overflow-y: auto;
+	padding: 10px;
+	max-height: none; /* 关键：移除高度限制 */
+	background-color: var(--background-primary);
+	border-radius: 0;
+	height: 100%; /* 确保高度传递 */
+}
+
+/* 原生嵌入 (PDF/MD) 特殊处理 */
+.node-content.native-embed-container {
+	padding: 0 !important;
+	overflow: hidden !important;
+	display: flex;
+	flex-direction: column;
+}
+
+.node-content.native-embed-container .workspace-leaf,
+.node-content.native-embed-container .workspace-leaf-content,
+.node-content.native-embed-container .view-content {
+	height: 100% !important;
+	width: 100% !important;
+	flex: 1;
+}
+
+/* 修复 PDF 视图的显示 */
+.pdf-container,
+.pdf-viewer-container {
+    height: 100% !important;
+    position: relative;
+}
+
+/* 图片预览样式修正 */
+.canvas-viewer-file-node.has-image .node-content {
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var(--background-secondary); /* 给图片一个深色背景 */
+}
+
+/* 占位符样式调整 */
+.canvas-viewer-placeholder {
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+.node-header-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1; /* 让左侧容器占满空间 */
+}
+
+/* 只让图钉按钮靠右，文件名保持在左侧 */
+.node-header-left .node-pin-btn {
+	margin-left: auto;
+}
+
+.node-info {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.node-info strong {
+	color: var(--text-accent);
+	font-size: 13px;
+}
+
+.node-color-indicator {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	display: inline-block;
+}
+
+.node-color-indicator[data-color="1"] { background-color: #e74c3c; }
+.node-color-indicator[data-color="2"] { background-color: #e67e22; }
+.node-color-indicator[data-color="3"] { background-color: #f39c12; }
+.node-color-indicator[data-color="4"] { background-color: #27ae60; }
+.node-color-indicator[data-color="5"] { background-color: #3498db; }
+.node-color-indicator[data-color="6"] { background-color: #9b59b6; }
+
+/* 工具栏 */
+.node-toolbar {
+	display: flex;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+.node-toolbar-btn {
+	padding: 4px 10px;
+	font-size: 12px;
+	background-color: var(--interactive-normal);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+.node-toolbar-btn:hover {
+	background-color: var(--interactive-hover);
+}
+
+.node-toolbar-btn:active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.file-name span {
+	font-family: var(--font-monospace);
+}
+
+.node-content pre {
+	margin: 0;
+	padding: 8px;
+	background-color: var(--background-primary-alt);
+	border-radius: 3px;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+
+/* 编辑器样式 */
+.node-editor {
+	width: 100%;
+	min-height: 150px;
+	padding: 10px;
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	font-family: var(--font-monospace);
+	font-size: 13px;
+	line-height: 1.6;
+	resize: vertical;
+	outline: none;
+}
+
+.node-editor:focus {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+}
+
+.canvas-viewer-error,
+.canvas-viewer-info {
+	padding: 10px;
+	border-radius: 4px;
+	text-align: center;
+}
+
+.canvas-viewer-error {
+	background-color: var(--background-modifier-error);
+	color: var(--text-error);
+}
+
+.canvas-viewer-info {
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+}
+
+/* Markdown 渲染样式调整 */
+.canvas-viewer-content .markdown-rendered {
+	font-size: 13px;
+}
+
+.canvas-viewer-content .markdown-rendered h1,
+.canvas-viewer-content .markdown-rendered h2,
+.canvas-viewer-content .markdown-rendered h3 {
+	margin-top: 10px;
+	margin-bottom: 8px;
+}
+
+.canvas-viewer-content .markdown-rendered p {
+	margin-bottom: 8px;
+}
+
+.canvas-viewer-content .markdown-rendered ul,
+.canvas-viewer-content .markdown-rendered ol {
+	padding-left: 20px;
+	margin-bottom: 8px;
+}
+
+.canvas-viewer-content .markdown-rendered code {
+	background-color: var(--background-primary-alt);
+	padding: 2px 4px;
+	border-radius: 3px;
+}
+
+.canvas-viewer-content .markdown-rendered pre {
+	background-color: var(--background-primary-alt);
+	padding: 10px;
+	border-radius: 4px;
+	overflow-x: auto;
+}
+
+/* 文本节点上下分屏样式 */
+.text-node-split {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 0 !important;
+	max-height: none !important;
+	height: 100%; /* 填满 */
+	flex: 1;
+}
+
+.text-node-editor-pane {
+	flex: 1;
+	min-height: 100px;
+	display: flex;
+	flex-direction: column;
+}
+
+.text-node-editor-pane .node-editor {
+	flex: 1;
+	min-height: 100px;
+	height: 100%;
+	resize: none;
+	margin: 0;
+}
+
+.text-node-preview {
+	flex: 1;
+	min-height: 100px;
+	padding: 10px;
+	background-color: var(--background-primary);
+	border-top: 1px solid var(--background-modifier-border);
+	border-radius: 0;
+	overflow-y: auto;
+}
+
+.text-preview-placeholder {
+	color: var(--text-muted);
+	font-style: italic;
+	text-align: center;
+	padding: 20px;
+}
+
+.canvas-thumbnail-wrapper {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var(--background-primary);
+}
+
+.canvas-thumbnail-wrapper svg {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+/* 图片预览样式 */
+.canvas-viewer-image-preview {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var(--background-primary);
+	padding: 0;
+	margin: 0;
+	overflow: hidden;
+}
+
+.canvas-viewer-image-preview img {
+	width: 100%;
+	height: auto;
+	max-height: 100%;
+	object-fit: contain;
+	display: block;
+}
+
+/* 链接节点样式 */
+.canvas-viewer-link-node {
+	background-color: var(--background-primary);
+	padding: 8px;
+}
+
+.canvas-viewer-link-node .link-container {
+	margin-bottom: 10px;
+	padding: 8px;
+	background-color: var(--background-secondary);
+	border-radius: 4px;
+}
+
+.canvas-viewer-link-node .label {
+	font-weight: 600;
+	margin-bottom: 4px;
+	color: var(--text-muted);
+}
+
+.canvas-viewer-link-node .external-link {
+	word-break: break-all;
+	color: var(--text-accent);
+}
+
+.canvas-viewer-link-node .iframe-container {
+	width: 100%;
+	flex: 1; /* 自动填满 */
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.canvas-viewer-link-node iframe {
+	width: 100%;
+	height: 100%;
+	border: none;
+}
+
+/* 分组节点样式 */
+.canvas-viewer-group-node {
+	background-color: var(--background-primary);
+	padding: 8px;
+}
+
+.canvas-viewer-group-node .group-info {
+	padding: 20px;
+	text-align: center;
+	color: var(--text-muted);
+	font-style: italic;
+}

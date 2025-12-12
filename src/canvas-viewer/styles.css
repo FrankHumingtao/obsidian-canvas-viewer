@@ -1,5 +1,10 @@
 /* Canvas Viewer 样式 */
 
+/* 隐藏 Canvas Viewer 的默认头部 (双重标题栏修复) */
+.workspace-leaf-content[data-type="canvas-viewer-view"] .view-header {
+	display: none !important;
+}
+
 /* Canvas Control Button Style */
 .canvas-viewer-control-item {
 	display: flex;

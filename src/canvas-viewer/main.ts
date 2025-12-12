@@ -53,7 +53,6 @@ interface CanvasData {
 
 export default class CanvasViewerPlugin extends Plugin {
 	settings: CanvasViewerSettings;
-	private viewerLeaf: WorkspaceLeaf | null = null;
 	private canvasMonitorInterval: number | null = null;
 	private lastSelectedNodeId: string | null = null;
 	private isViewerEnabled: boolean = false;
@@ -96,7 +95,8 @@ export default class CanvasViewerPlugin extends Plugin {
 					this.injectCanvasControl(leaf.view as any);
 					
 					if (this.isViewerEnabled) {
-						this.activateView();
+						// 不抢夺焦点 (reveal=false)
+						this.activateView(false);
 						this.startMonitoringCanvas();
 					}
 				} else {
@@ -109,12 +109,33 @@ export default class CanvasViewerPlugin extends Plugin {
 		// 初始化处理：等待布局就绪后，扫描所有 Canvas
 		this.app.workspace.onLayoutReady(() => {
 			this.updateAllCanvasButtons();
+			this.cleanupOrphanedTempFiles();
 		});
 
 		// 添加设置标签页
 		this.addSettingTab(new CanvasViewerSettingTab(this.app, this));
 
 		console.log('Canvas Viewer 插件已加载');
+	}
+
+	// 清理残留的临时文件
+	async cleanupOrphanedTempFiles() {
+		// 使用正则匹配临时文件: "Canvas Node " + 6位字符 + ".md"
+		const tempFileRegex = /^Canvas Node [a-z0-9]{6}\.md$/;
+		const files = this.app.vault.getFiles();
+		
+		for (const file of files) {
+			// 只检查根目录下的文件 (file.parent.path 为 "/" 或 "")
+			const parentPath = file.parent?.path || '';
+			if ((parentPath === '/' || parentPath === '') && tempFileRegex.test(file.name)) {
+				console.log('清理残留临时文件:', file.path);
+				try {
+					await this.app.vault.delete(file);
+				} catch (e) {
+					console.error('清理文件失败:', e);
+				}
+			}
+		}
 	}
 	
 	// 注入 Canvas 控制按钮
@@ -256,11 +277,17 @@ export default class CanvasViewerPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async activateView() {
+	async activateView(reveal = true) {
 		const { workspace } = this.app;
 
-		// 检查是否已经打开
-		let leaf = workspace.getLeavesOfType(VIEW_TYPE_CANVAS_VIEWER)[0];
+		// 检查是否已经打开 - 使用 iterateAllLeaves 确保覆盖所有窗口
+		let leaf: WorkspaceLeaf | null = null;
+		workspace.iterateAllLeaves((l) => {
+			if (l.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+				leaf = l;
+				return true; // 找到一个就停止? iterateAllLeaves 的回调返回值好像不支持中断，不过不影响
+			}
+		});
 
 		if (!leaf) {
 			// 在指定位置创建新的 leaf
@@ -277,16 +304,19 @@ export default class CanvasViewerPlugin extends Plugin {
 			}
 		}
 
-		if (leaf) {
+		if (leaf && reveal) {
 			workspace.revealLeaf(leaf);
-			this.viewerLeaf = leaf;
 		}
 	}
 
 	deactivateView() {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CANVAS_VIEWER);
+		const leaves: WorkspaceLeaf[] = [];
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			if (leaf.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+				leaves.push(leaf);
+			}
+		});
 		leaves.forEach(leaf => leaf.detach());
-		this.viewerLeaf = null;
 	}
 
 	startMonitoringCanvas() {
@@ -325,6 +355,11 @@ export default class CanvasViewerPlugin extends Plugin {
 			const selectedNodes = Array.from(canvas.selection) as any[];
 			
 			if (selectedNodes.length === 0) {
+				// 如果之前有选中节点，现在取消了选中（或被删除），需要清理 Viewer
+				if (this.lastSelectedNodeId !== null) {
+					this.lastSelectedNodeId = null;
+					await this.clearAllViewers();
+				}
 				return;
 			}
 
@@ -334,14 +369,7 @@ export default class CanvasViewerPlugin extends Plugin {
 			if (!selectedNode || !selectedNode.id) {
 				return;
 			}
-
-			// 检查视图是否被固定(Pin)
-			if (this.viewerLeaf && this.viewerLeaf.view instanceof CanvasViewerView) {
-				if (this.viewerLeaf.view.isPinned) {
-					return;
-				}
-			}
-
+			
 			// 如果选中的节点与上次相同,不重复处理
 			if (selectedNode.id === this.lastSelectedNodeId) {
 				return;
@@ -357,15 +385,47 @@ export default class CanvasViewerPlugin extends Plugin {
 		}
 	}
 
+	private async clearAllViewers() {
+		const leaves: WorkspaceLeaf[] = [];
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			if (leaf.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+				leaves.push(leaf);
+			}
+		});
+
+		for (const leaf of leaves) {
+			const view = leaf.view;
+			if (view instanceof CanvasViewerView) {
+				// 如果视图被固定，则不清除
+				if (!view.isPinned) {
+					await view.clear();
+				}
+			}
+		}
+	}
+
 	private async updateViewerContent(node: any, canvasView: any) {
-		const viewerLeaf = this.viewerLeaf;
-		if (!viewerLeaf) {
+		// 动态获取所有查看器 Leaf (包括浮动窗口中的)
+		// 使用 iterateAllLeaves 以确保覆盖所有窗口
+		const leaves: WorkspaceLeaf[] = [];
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			if (leaf.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+				leaves.push(leaf);
+			}
+		});
+
+		if (leaves.length === 0) {
 			return;
 		}
 
-		const view = viewerLeaf.view;
-		if (view instanceof CanvasViewerView) {
-			await view.displayNodeContent(node, canvasView);
+		for (const leaf of leaves) {
+			const view = leaf.view;
+			if (view instanceof CanvasViewerView) {
+				// 检查每个视图是否被 Pin
+				if (!view.isPinned) {
+					await view.displayNodeContent(node, canvasView);
+				}
+			}
 		}
 	}
 }
@@ -401,13 +461,15 @@ class CanvasViewerView extends ItemView {
 	}
 
 	async onOpen() {
+		// 隐藏默认的视图头部 (icon + title + actions)
+		const header = this.containerEl.querySelector('.view-header') as HTMLElement;
+		if (header) {
+			header.style.display = 'none';
+		}
+
 		const container = this.containerEl.children[1];
 		container.empty();
 		container.addClass('canvas-viewer-container');
-		
-		// 移除标题栏，直接创建内容区域
-		// const header = container.createEl('div', { cls: 'canvas-viewer-header' });
-		// ...
 		
 		// 创建内容区域
 		this.viewContentEl = container.createEl('div', { cls: 'canvas-viewer-content' });
@@ -503,6 +565,13 @@ class CanvasViewerView extends ItemView {
 		await this.cleanupTemporaryFile();
 		
 		this.viewContentEl.empty();
+	}
+	
+	async clear() {
+		await this.onClose();
+		this.showPlaceholder();
+		this.currentNode = null;
+		this.currentFile = null;
 	}
 
 	private async cleanupTemporaryFile() {
@@ -1245,7 +1314,14 @@ class CanvasViewerSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					
 					// 如果查看器已打开,重新定位
-					if (this.plugin['viewerLeaf']) {
+					let hasOpenViewer = false;
+					this.plugin.app.workspace.iterateAllLeaves((leaf) => {
+						if (leaf.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+							hasOpenViewer = true;
+						}
+					});
+					
+					if (hasOpenViewer) {
 						this.plugin.deactivateView();
 						await this.plugin.activateView();
 					}

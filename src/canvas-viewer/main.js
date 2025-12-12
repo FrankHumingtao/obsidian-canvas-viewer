@@ -39,7 +39,6 @@ var DEFAULT_SETTINGS = {
 var CanvasViewerPlugin = class extends import_obsidian.Plugin {
   constructor() {
     super(...arguments);
-    this.viewerLeaf = null;
     this.canvasMonitorInterval = null;
     this.lastSelectedNodeId = null;
     this.isViewerEnabled = false;
@@ -71,7 +70,7 @@ var CanvasViewerPlugin = class extends import_obsidian.Plugin {
         if (((_a = leaf == null ? void 0 : leaf.view) == null ? void 0 : _a.getViewType()) === "canvas") {
           this.injectCanvasControl(leaf.view);
           if (this.isViewerEnabled) {
-            this.activateView();
+            this.activateView(false);
             this.startMonitoringCanvas();
           }
         } else {
@@ -81,9 +80,27 @@ var CanvasViewerPlugin = class extends import_obsidian.Plugin {
     );
     this.app.workspace.onLayoutReady(() => {
       this.updateAllCanvasButtons();
+      this.cleanupOrphanedTempFiles();
     });
     this.addSettingTab(new CanvasViewerSettingTab(this.app, this));
     console.log("Canvas Viewer \u63D2\u4EF6\u5DF2\u52A0\u8F7D");
+  }
+  // 清理残留的临时文件
+  async cleanupOrphanedTempFiles() {
+    var _a;
+    const tempFileRegex = /^Canvas Node [a-z0-9]{6}\.md$/;
+    const files = this.app.vault.getFiles();
+    for (const file of files) {
+      const parentPath = ((_a = file.parent) == null ? void 0 : _a.path) || "";
+      if ((parentPath === "/" || parentPath === "") && tempFileRegex.test(file.name)) {
+        console.log("\u6E05\u7406\u6B8B\u7559\u4E34\u65F6\u6587\u4EF6:", file.path);
+        try {
+          await this.app.vault.delete(file);
+        } catch (e) {
+          console.error("\u6E05\u7406\u6587\u4EF6\u5931\u8D25:", e);
+        }
+      }
+    }
   }
   // 注入 Canvas 控制按钮
   injectCanvasControl(canvasView, retryCount = 0) {
@@ -191,9 +208,15 @@ var CanvasViewerPlugin = class extends import_obsidian.Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
   }
-  async activateView() {
+  async activateView(reveal = true) {
     const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(VIEW_TYPE_CANVAS_VIEWER)[0];
+    let leaf = null;
+    workspace.iterateAllLeaves((l) => {
+      if (l.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+        leaf = l;
+        return true;
+      }
+    });
     if (!leaf) {
       const targetLeaf = this.settings.viewPosition === "right" ? workspace.getRightLeaf(false) : workspace.getLeftLeaf(false);
       if (targetLeaf) {
@@ -204,15 +227,18 @@ var CanvasViewerPlugin = class extends import_obsidian.Plugin {
         leaf = targetLeaf;
       }
     }
-    if (leaf) {
+    if (leaf && reveal) {
       workspace.revealLeaf(leaf);
-      this.viewerLeaf = leaf;
     }
   }
   deactivateView() {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CANVAS_VIEWER);
+    const leaves = [];
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+        leaves.push(leaf);
+      }
+    });
     leaves.forEach((leaf) => leaf.detach());
-    this.viewerLeaf = null;
   }
   startMonitoringCanvas() {
     this.stopMonitoringCanvas();
@@ -240,16 +266,15 @@ var CanvasViewerPlugin = class extends import_obsidian.Plugin {
       }
       const selectedNodes = Array.from(canvas.selection);
       if (selectedNodes.length === 0) {
+        if (this.lastSelectedNodeId !== null) {
+          this.lastSelectedNodeId = null;
+          await this.clearAllViewers();
+        }
         return;
       }
       const selectedNode = selectedNodes[0];
       if (!selectedNode || !selectedNode.id) {
         return;
-      }
-      if (this.viewerLeaf && this.viewerLeaf.view instanceof CanvasViewerView) {
-        if (this.viewerLeaf.view.isPinned) {
-          return;
-        }
       }
       if (selectedNode.id === this.lastSelectedNodeId) {
         return;
@@ -260,14 +285,39 @@ var CanvasViewerPlugin = class extends import_obsidian.Plugin {
       console.error("\u68C0\u67E5 Canvas \u9009\u4E2D\u72B6\u6001\u65F6\u51FA\u9519:", error);
     }
   }
+  async clearAllViewers() {
+    const leaves = [];
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+        leaves.push(leaf);
+      }
+    });
+    for (const leaf of leaves) {
+      const view = leaf.view;
+      if (view instanceof CanvasViewerView) {
+        if (!view.isPinned) {
+          await view.clear();
+        }
+      }
+    }
+  }
   async updateViewerContent(node, canvasView) {
-    const viewerLeaf = this.viewerLeaf;
-    if (!viewerLeaf) {
+    const leaves = [];
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+        leaves.push(leaf);
+      }
+    });
+    if (leaves.length === 0) {
       return;
     }
-    const view = viewerLeaf.view;
-    if (view instanceof CanvasViewerView) {
-      await view.displayNodeContent(node, canvasView);
+    for (const leaf of leaves) {
+      const view = leaf.view;
+      if (view instanceof CanvasViewerView) {
+        if (!view.isPinned) {
+          await view.displayNodeContent(node, canvasView);
+        }
+      }
     }
   }
 };
@@ -294,6 +344,10 @@ var CanvasViewerView = class extends import_obsidian.ItemView {
     return "file-text";
   }
   async onOpen() {
+    const header = this.containerEl.querySelector(".view-header");
+    if (header) {
+      header.style.display = "none";
+    }
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("canvas-viewer-container");
@@ -365,6 +419,12 @@ var CanvasViewerView = class extends import_obsidian.ItemView {
     }
     await this.cleanupTemporaryFile();
     this.viewContentEl.empty();
+  }
+  async clear() {
+    await this.onClose();
+    this.showPlaceholder();
+    this.currentNode = null;
+    this.currentFile = null;
   }
   async cleanupTemporaryFile() {
     if (this.temporaryFile) {
@@ -913,7 +973,13 @@ var CanvasViewerSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("\u67E5\u770B\u5668\u4F4D\u7F6E").setDesc("\u8BBE\u7F6E\u5185\u5BB9\u67E5\u770B\u5668\u663E\u793A\u5728\u5DE6\u4FA7\u8FD8\u662F\u53F3\u4FA7").addDropdown((dropdown) => dropdown.addOption("right", "\u53F3\u4FA7").addOption("left", "\u5DE6\u4FA7").setValue(this.plugin.settings.viewPosition).onChange(async (value) => {
       this.plugin.settings.viewPosition = value;
       await this.plugin.saveSettings();
-      if (this.plugin["viewerLeaf"]) {
+      let hasOpenViewer = false;
+      this.plugin.app.workspace.iterateAllLeaves((leaf) => {
+        if (leaf.view.getViewType() === VIEW_TYPE_CANVAS_VIEWER) {
+          hasOpenViewer = true;
+        }
+      });
+      if (hasOpenViewer) {
         this.plugin.deactivateView();
         await this.plugin.activateView();
       }
